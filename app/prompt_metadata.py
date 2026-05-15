@@ -125,28 +125,32 @@ def inject_envelope(
     data: Any,
     envelope_lookup: Callable[[str], Optional[dict]],
 ) -> Any:
-    """Return ``data`` with a per-prompt ``metadata`` envelope attached.
+    """Return ``data`` with the per-prompt envelope's keys spread onto it.
 
     ``envelope_lookup`` is called with the payload's ``prompt_id`` and is
     expected to return the registered envelope or ``None``. This keeps
     the function pure and avoids depending on any specific storage.
 
+    The envelope's keys are merged onto the payload at the top level so
+    consumers can read them directly (e.g. ``event.workflow_id``) —
+    matching the wire shape of the prior workflow-id-on-events work and
+    avoiding an extra nesting hop for clients. Server-emitted fields on
+    the payload always win on collision (``{**envelope, **d}``); a
+    misbehaving client cannot shadow ``prompt_id``, ``node``, etc.
+
     Two payload shapes are handled:
 
-    - **dict** carrying ``prompt_id``. A shallow copy is returned with a
-      ``metadata`` key set to the envelope.
+    - **dict** carrying ``prompt_id``. A shallow copy is returned with
+      the envelope's keys merged onto it.
     - **(preview_image, metadata_dict) tuple** — the format used by
       ``PREVIEW_IMAGE_WITH_METADATA``. Only the inner dict is augmented;
       the binary preview is passed through by reference.
 
-    No-op for payloads without a ``prompt_id``, payloads already
-    declaring their own ``metadata`` field, prompts with no registered
-    envelope, or any other payload shape.
+    No-op for payloads without a ``prompt_id``, prompts with no
+    registered envelope, or any other payload shape.
     """
     def inject(d: dict) -> dict:
         if not isinstance(d, dict):
-            return d
-        if "metadata" in d:
             return d
         prompt_id = d.get("prompt_id")
         if not prompt_id:
@@ -154,7 +158,7 @@ def inject_envelope(
         envelope = envelope_lookup(prompt_id)
         if envelope is None:
             return d
-        return {**d, "metadata": envelope}
+        return {**envelope, **d}
 
     if isinstance(data, dict):
         return inject(data)

@@ -166,12 +166,15 @@ class TestInjectEnvelope:
     def _lookup(table):
         return table.get
 
-    def test_injects_envelope_on_dict_with_known_prompt_id(self):
-        lookup = self._lookup({"p1": {"workflow_id": "wf-1"}})
+    def test_spreads_envelope_keys_onto_payload(self):
+        """Envelope keys are merged at the top level so consumers can
+        read them directly (e.g. ``event.workflow_id``)."""
+        lookup = self._lookup({"p1": {"workflow_id": "wf-1", "trace_id": "t-9"}})
         assert inject_envelope({"node": "5", "prompt_id": "p1"}, lookup) == {
             "node": "5",
             "prompt_id": "p1",
-            "metadata": {"workflow_id": "wf-1"},
+            "workflow_id": "wf-1",
+            "trace_id": "t-9",
         }
 
     def test_passthrough_when_prompt_id_not_registered(self):
@@ -184,20 +187,28 @@ class TestInjectEnvelope:
         data = {"status": "ok"}
         assert inject_envelope(data, lookup) == data
 
-    def test_passthrough_when_payload_already_has_metadata(self):
-        """If a caller has already set a ``metadata`` field, the
-        function must not overwrite it."""
-        lookup = self._lookup({"p1": {"workflow_id": "wf-injected"}})
-        data = {"prompt_id": "p1", "metadata": {"workflow_id": "wf-caller"}}
-        result = inject_envelope(data, lookup)
-        assert result == data
-        assert result["metadata"] == {"workflow_id": "wf-caller"}
+    def test_server_keys_win_on_collision_with_envelope(self):
+        """A misbehaving client cannot shadow server-emitted fields by
+        stamping the same key in their submission envelope."""
+        lookup = self._lookup({
+            "p1": {"prompt_id": "client-claimed", "node": "spoofed", "workflow_id": "wf-1"}
+        })
+        result = inject_envelope({"prompt_id": "p1", "node": "5"}, lookup)
+        assert result["prompt_id"] == "p1"
+        assert result["node"] == "5"
+        assert result["workflow_id"] == "wf-1"
 
     def test_does_not_mutate_input_dict(self):
         lookup = self._lookup({"p1": {"workflow_id": "wf-1"}})
         original = {"node": "5", "prompt_id": "p1"}
         inject_envelope(original, lookup)
-        assert "metadata" not in original
+        assert "workflow_id" not in original
+
+    def test_does_not_mutate_envelope_dict(self):
+        envelope = {"workflow_id": "wf-1"}
+        lookup = self._lookup({"p1": envelope})
+        inject_envelope({"prompt_id": "p1", "node": "5"}, lookup)
+        assert envelope == {"workflow_id": "wf-1"}
 
     def test_injects_into_inner_dict_of_preview_metadata_tuple(self):
         """``PREVIEW_IMAGE_WITH_METADATA`` payloads arrive as
@@ -212,21 +223,14 @@ class TestInjectEnvelope:
         assert result[1] == {
             "node_id": "5",
             "prompt_id": "p1",
-            "metadata": {"workflow_id": "wf-1"},
+            "workflow_id": "wf-1",
         }
-        assert "metadata" not in inner
+        assert "workflow_id" not in inner
 
     def test_preview_tuple_passthrough_when_no_envelope_registered(self):
         lookup = self._lookup({})
         preview_image = ("PNG", object(), 256)
         inner = {"node_id": "5", "prompt_id": "unknown"}
-        result = inject_envelope((preview_image, inner), lookup)
-        assert result == (preview_image, inner)
-
-    def test_preview_tuple_passthrough_when_inner_already_has_metadata(self):
-        lookup = self._lookup({"p1": {"workflow_id": "wf-injected"}})
-        preview_image = ("PNG", object(), 256)
-        inner = {"node_id": "5", "prompt_id": "p1", "metadata": {"x": "1"}}
         result = inject_envelope((preview_image, inner), lookup)
         assert result == (preview_image, inner)
 
@@ -251,9 +255,9 @@ class TestInjectEnvelope:
         second = inject_envelope({"prompt_id": "p1"}, store.get)
         del store["p1"]
         third = inject_envelope({"prompt_id": "p1"}, store.get)
-        assert first["metadata"] == {"workflow_id": "wf-1"}
-        assert second["metadata"] == {"workflow_id": "wf-2"}
-        assert "metadata" not in third
+        assert first["workflow_id"] == "wf-1"
+        assert second["workflow_id"] == "wf-2"
+        assert "workflow_id" not in third
 
 
 class TestPromptMetadataStore:
@@ -269,17 +273,18 @@ class TestPromptMetadataStore:
         assert injected == {
             "node": "5",
             "prompt_id": "p1",
-            "metadata": {"workflow_id": "wf-1"},
+            "workflow_id": "wf-1",
         }
         store.unregister("p1")
         passthrough = store.inject({"node": "5", "prompt_id": "p1"})
-        assert "metadata" not in passthrough
+        assert "workflow_id" not in passthrough
 
     def test_register_with_no_derivable_envelope_is_noop(self):
         store = PromptMetadataStore()
         store.register("p1", {})
         assert "p1" not in store
-        assert store.inject({"prompt_id": "p1"}) == {"prompt_id": "p1"}
+        data = {"prompt_id": "p1"}
+        assert store.inject(data) == data
 
     def test_register_with_oversized_envelope_is_noop(self):
         """Sanitization rejection means nothing is registered — the
@@ -310,11 +315,9 @@ class TestPromptMetadataStore:
         assert "p4" in store
 
         # The newer entries are still injectable.
-        assert store.inject({"prompt_id": "p4"})["metadata"] == {
-            "workflow_id": "wf-4"
-        }
+        assert store.inject({"prompt_id": "p4"})["workflow_id"] == "wf-4"
         # The evicted one is gone.
-        assert "metadata" not in store.inject({"prompt_id": "p1"})
+        assert "workflow_id" not in store.inject({"prompt_id": "p1"})
 
     def test_register_after_unregister_does_not_count_against_capacity(self):
         """Normal lifecycle: register, unregister, register many — the
@@ -330,9 +333,7 @@ class TestPromptMetadataStore:
         store = PromptMetadataStore()
         store.register("p1", {"metadata": {"workflow_id": "wf-1"}})
         store.register("p1", {"metadata": {"workflow_id": "wf-2"}})
-        assert store.inject({"prompt_id": "p1"})["metadata"] == {
-            "workflow_id": "wf-2"
-        }
+        assert store.inject({"prompt_id": "p1"})["workflow_id"] == "wf-2"
 
     def test_inject_with_no_registrations_is_passthrough(self):
         store = PromptMetadataStore()
@@ -345,5 +346,5 @@ class TestPromptMetadataStore:
         result = store.inject((b"image-bytes", {"prompt_id": "p1"}))
         assert result == (b"image-bytes", {
             "prompt_id": "p1",
-            "metadata": {"workflow_id": "wf-1"},
+            "workflow_id": "wf-1",
         })
