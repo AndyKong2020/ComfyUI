@@ -7,6 +7,7 @@ Covers:
 - Composite keying prevents collisions between modules with the same name
   in different sources.
 - record_node_startup_error stores the expected fields.
+- pyproject.toml metadata is attached when present and omitted when absent.
 """
 import textwrap
 
@@ -35,14 +36,14 @@ def test_record_node_startup_error_fields(tmp_path):
     err = ValueError("kaboom")
     nodes.record_node_startup_error(
         module_path=str(tmp_path / "my_pack"),
-        source="custom_node",
+        source="custom_nodes",
         phase="import",
         error=err,
         tb="traceback-text",
     )
-    assert "custom_node:my_pack" in nodes.NODE_STARTUP_ERRORS
-    entry = nodes.NODE_STARTUP_ERRORS["custom_node:my_pack"]
-    assert entry["source"] == "custom_node"
+    assert "custom_nodes:my_pack" in nodes.NODE_STARTUP_ERRORS
+    entry = nodes.NODE_STARTUP_ERRORS["custom_nodes:my_pack"]
+    assert entry["source"] == "custom_nodes"
     assert entry["module_name"] == "my_pack"
     assert entry["phase"] == "import"
     assert entry["error"] == "kaboom"
@@ -52,23 +53,20 @@ def test_record_node_startup_error_fields(tmp_path):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "module_parent,expected_source",
-    [
-        ("custom_nodes", "custom_node"),
-        ("comfy_extras", "comfy_extra"),
-        ("comfy_api_nodes", "api_node"),
-    ],
+    "module_parent",
+    ["custom_nodes", "comfy_extras", "comfy_api_nodes"],
 )
-async def test_load_custom_node_records_source(tmp_path, module_parent, expected_source):
+async def test_load_custom_node_records_source(tmp_path, module_parent):
+    # `source` in the entry should be the same string as `module_parent`.
     module_path = _write_broken_module(tmp_path, "broken_pack")
 
     success = await nodes.load_custom_node(module_path, module_parent=module_parent)
     assert success is False
 
-    key = f"{expected_source}:broken_pack"
+    key = f"{module_parent}:broken_pack"
     assert key in nodes.NODE_STARTUP_ERRORS, nodes.NODE_STARTUP_ERRORS
     entry = nodes.NODE_STARTUP_ERRORS[key]
-    assert entry["source"] == expected_source
+    assert entry["source"] == module_parent
     assert entry["module_name"] == "broken_pack"
     assert entry["phase"] == "import"
     assert "boom from" in entry["error"]
@@ -77,7 +75,7 @@ async def test_load_custom_node_records_source(tmp_path, module_parent, expected
 
 @pytest.mark.asyncio
 async def test_load_custom_node_collision_across_sources(tmp_path):
-    # Same module name registered as both a custom_node and a comfy_extra;
+    # Same module name registered as both a custom node and a comfy_extra;
     # composite keying should keep both entries.
     cn_dir = tmp_path / "cn"
     extras_dir = tmp_path / "extras"
@@ -89,11 +87,11 @@ async def test_load_custom_node_collision_across_sources(tmp_path):
     assert await nodes.load_custom_node(cn_path, module_parent="custom_nodes") is False
     assert await nodes.load_custom_node(extras_path, module_parent="comfy_extras") is False
 
-    assert "custom_node:nodes_audio" in nodes.NODE_STARTUP_ERRORS
-    assert "comfy_extra:nodes_audio" in nodes.NODE_STARTUP_ERRORS
+    assert "custom_nodes:nodes_audio" in nodes.NODE_STARTUP_ERRORS
+    assert "comfy_extras:nodes_audio" in nodes.NODE_STARTUP_ERRORS
     assert (
-        nodes.NODE_STARTUP_ERRORS["custom_node:nodes_audio"]["module_path"]
-        != nodes.NODE_STARTUP_ERRORS["comfy_extra:nodes_audio"]["module_path"]
+        nodes.NODE_STARTUP_ERRORS["custom_nodes:nodes_audio"]["module_path"]
+        != nodes.NODE_STARTUP_ERRORS["comfy_extras:nodes_audio"]["module_path"]
     )
 
 
@@ -118,7 +116,7 @@ async def test_load_custom_node_attaches_pyproject_metadata(tmp_path):
     success = await nodes.load_custom_node(str(pack_dir), module_parent="custom_nodes")
     assert success is False
 
-    entry = nodes.NODE_STARTUP_ERRORS["custom_node:MyCoolPack"]
+    entry = nodes.NODE_STARTUP_ERRORS["custom_nodes:MyCoolPack"]
     assert "pyproject" in entry, entry
     py = entry["pyproject"]
     assert py["pack_id"] == "comfyui-mycoolpack"
@@ -134,12 +132,15 @@ async def test_load_custom_node_no_pyproject_skips_metadata(tmp_path):
     # so the entry must not contain a 'pyproject' key.
     module_path = _write_broken_module(tmp_path, "lonely")
     assert await nodes.load_custom_node(module_path, module_parent="comfy_extras") is False
-    entry = nodes.NODE_STARTUP_ERRORS["comfy_extra:lonely"]
+    entry = nodes.NODE_STARTUP_ERRORS["comfy_extras:lonely"]
     assert "pyproject" not in entry
 
 
-def test_unknown_module_parent_defaults_to_custom_node():
-    assert nodes._node_source_from_parent("custom_nodes") == "custom_node"
-    assert nodes._node_source_from_parent("comfy_extras") == "comfy_extra"
-    assert nodes._node_source_from_parent("comfy_api_nodes") == "api_node"
-    assert nodes._node_source_from_parent("something_else") == "custom_node"
+@pytest.mark.asyncio
+async def test_load_custom_node_arbitrary_module_parent_passes_through(tmp_path):
+    # `source` is a free-form string — an unknown module_parent (e.g. a future
+    # node-source bucket) should be recorded as-is, not coerced or rejected.
+    module_path = _write_broken_module(tmp_path, "future_pack")
+    assert await nodes.load_custom_node(module_path, module_parent="future_source") is False
+    entry = nodes.NODE_STARTUP_ERRORS["future_source:future_pack"]
+    assert entry["source"] == "future_source"

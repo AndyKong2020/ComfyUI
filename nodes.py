@@ -2181,24 +2181,17 @@ EXTENSION_WEB_DIRS = {}
 # Dictionary of successfully loaded module names and associated directories.
 LOADED_MODULE_DIRS = {}
 
-# Mapping from internal module_parent values to the public "source"
-# category the API exposes. Keeps the on-disk layout decoupled from
-# the names the frontend/Manager switches on.
-_NODE_SOURCE_BY_PARENT = {
-    "custom_nodes": "custom_node",
-    "comfy_extras": "comfy_extra",
-    "comfy_api_nodes": "api_node",
-}
-
-
-def _node_source_from_parent(module_parent: str) -> str:
-    return _NODE_SOURCE_BY_PARENT.get(module_parent, "custom_node")
-
-
 # Dictionary of custom node startup errors, keyed by "<source>:<module_name>"
 # so that name collisions across custom_nodes / comfy_extras / comfy_api_nodes
 # do not overwrite each other. Each value contains: source, module_name,
 # module_path, error, traceback, phase.
+#
+# `source` is the same string as the internal `module_parent` used at load
+# time (e.g. "custom_nodes", "comfy_extras", "comfy_api_nodes"). It is
+# intentionally a free-form string rather than a fixed enum so the contract
+# survives node-source layouts evolving (e.g. comfy_api_nodes eventually
+# moving out of core). Consumers should treat any new value as a new bucket
+# rather than rejecting it.
 NODE_STARTUP_ERRORS: dict[str, dict] = {}
 
 
@@ -2366,7 +2359,7 @@ async def load_custom_node(module_path: str, ignore=set(), module_parent="custom
                 logging.warning(f"Error while calling comfy_entrypoint in {module_path}: {e}")
                 record_node_startup_error(
                     module_path=module_path,
-                    source=_node_source_from_parent(module_parent),
+                    source=module_parent,
                     phase="entrypoint",
                     error=e,
                     tb=tb,
@@ -2381,7 +2374,7 @@ async def load_custom_node(module_path: str, ignore=set(), module_parent="custom
         logging.warning(f"Cannot import {module_path} module for custom nodes: {e}")
         record_node_startup_error(
             module_path=module_path,
-            source=_node_source_from_parent(module_parent),
+            source=module_parent,
             phase="import",
             error=e,
             tb=tb,

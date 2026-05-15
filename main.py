@@ -144,7 +144,7 @@ def execute_prestartup_script():
             from nodes import record_node_startup_error
             record_node_startup_error(
                 module_path=os.path.dirname(script_path),
-                source="custom_node",
+                source="custom_nodes",
                 phase="prestartup",
                 error=e,
                 tb=traceback.format_exc(),
