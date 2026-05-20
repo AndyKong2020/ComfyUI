@@ -78,7 +78,13 @@ def get_reference_tags(session: Session, reference_id: str) -> list[str]:
             session.execute(
                 select(AssetReferenceTag.tag_name)
                 .where(AssetReferenceTag.asset_reference_id == reference_id)
-                .order_by(AssetReferenceTag.tag_name.asc())
+                # Match the response-path ordering used by
+                # list_references_page / fetch_reference_asset_and_tags so
+                # upload responses and subsequent GETs agree on tag order.
+                .order_by(
+                    AssetReferenceTag.added_at.asc(),
+                    AssetReferenceTag.tag_name.asc(),
+                )
             )
         ).all()
     ]
@@ -153,8 +159,12 @@ def add_tags_to_reference(
 
     current = set(get_reference_tags(session, reference_id))
 
+    # Preserve the caller's insertion order rather than alphabetizing —
+    # the retrieval ORDER BY added_at + microsecond stagger only meaningfully
+    # preserves insertion order if "the order we insert in" actually matches
+    # the caller's intent.
     want = set(norm)
-    to_add = sorted(want - current)
+    to_add = [t for t in norm if t not in current]
 
     if to_add:
         # See set_reference_tags for the rationale behind the per-tag stagger.
