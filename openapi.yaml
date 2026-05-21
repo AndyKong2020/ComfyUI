@@ -1572,6 +1572,17 @@ paths:
             type: string
             enum: [asc, desc]
           description: Sort direction
+        - name: job_ids
+          in: query
+          schema:
+            type: array
+            maxItems: 500
+            items:
+              type: string
+              format: uuid
+          style: form
+          explode: true
+          description: "Filter assets by associated job UUIDs. Accepts repeated query params (e.g. `?job_ids=a&job_ids=b`) or a single comma-separated value (`?job_ids=a,b`)."
         - name: include_public
           in: query
           schema:
