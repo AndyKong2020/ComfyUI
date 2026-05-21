@@ -2508,37 +2508,25 @@ paths:
 
   /api/assets/import:
     post:
-      operationId: importAssets
+      operationId: importPublishedAssets
       tags: [assets]
-      summary: Import assets from external URLs
-      description: "[cloud-only] Imports one or more assets from external URLs into the cloud asset store."
+      summary: "[cloud-only] Import published assets into the caller's library"
+      description: |
+        [cloud-only] Imports the specified published assets into the caller's asset library. New DB records reference the same storage objects; no file copying occurs. Assets the caller already owns (by hash) are deduplicated. The `id` field on each returned `AssetInfo` is the caller's newly-created private asset ID, not the published asset ID supplied in the request.
       x-runtime: [cloud]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - imports
-              properties:
-                imports:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/AssetImportRequest"
-                  description: Assets to import
+              $ref: "#/components/schemas/ImportPublishedAssetsRequest"
       responses:
         "200":
-          description: Import initiated
+          description: Successfully imported assets
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  assets:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Asset"
+                $ref: "#/components/schemas/ImportPublishedAssetsResponse"
         "400":
           description: Bad request
           content:
@@ -7373,24 +7361,35 @@ components:
           type: string
           description: Target path on the runtime filesystem
 
-    AssetImportRequest:
+    ImportPublishedAssetsRequest:
       type: object
       x-runtime: [cloud]
-      description: "[cloud-only] A single asset to import from an external URL."
+      description: "[cloud-only] Request body for importing published assets into the caller's library."
       required:
-        - url
+        - published_asset_ids
       properties:
-        url:
-          type: string
-          format: uri
-          description: URL of the asset to import
-        name:
-          type: string
-          description: Display name for the imported asset
-        tags:
+        published_asset_ids:
           type: array
+          description: IDs of published assets (inputs and models) to import.
           items:
             type: string
+        share_id:
+          type: string
+          nullable: true
+          description: |
+            Optional. Share ID of the published workflow these assets belong to. When provided (non-null, non-empty): all `published_asset_ids` must belong to this share's workflow version; returns 400 if the share is not found or any asset does not belong to it. When omitted, null, or empty string: no share-scoped validation is performed and the assets are validated only against global rules (preserved for clients that have not yet adopted `share_id`).
+
+    ImportPublishedAssetsResponse:
+      type: object
+      x-runtime: [cloud]
+      description: "[cloud-only] Response after importing published assets. Each returned `AssetInfo.id` is the caller's newly-created private asset ID, not the published asset ID supplied in the request."
+      required:
+        - assets
+      properties:
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetInfo"
 
     RemoteAssetMetadata:
       type: object
