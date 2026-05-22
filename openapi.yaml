@@ -104,6 +104,8 @@ paths:
       responses:
         "101":
           description: WebSocket upgrade successful
+        '401':
+          description: Unauthorized
       x-websocket-messages:
         - type: status
           schema:
@@ -170,6 +172,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PromptInfo"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: executePrompt
       tags: [prompt]
@@ -195,6 +209,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/PromptErrorResponse"
 
+        '402':
+          description: Payment required - Insufficient credits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptErrorResponse'
+        '429':
+          description: Payment required - User has not paid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptErrorResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptErrorResponse'
   # ---------------------------------------------------------------------------
   # Queue
   # ---------------------------------------------------------------------------
@@ -211,6 +249,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QueueInfo"
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: manageQueue
       tags: [queue]
@@ -226,6 +276,24 @@ paths:
         "200":
           description: Queue updated
 
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/interrupt:
     post:
       operationId: interruptJob
@@ -247,6 +315,18 @@ paths:
         "200":
           description: Interrupt signal sent
 
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/free:
     post:
       operationId: freeMemory
@@ -327,6 +407,18 @@ paths:
                   pagination:
                     $ref: "#/components/schemas/PaginationInfo"
 
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/jobs/{job_id}:
     get:
       operationId: getJobDetail
@@ -351,6 +443,24 @@ paths:
         "404":
           description: Job not found
 
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Job does not belong to user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # History
   # ---------------------------------------------------------------------------
@@ -388,6 +498,8 @@ paths:
                 type: object
                 additionalProperties:
                   $ref: "#/components/schemas/HistoryEntry"
+        '404':
+          description: "Not Found \u2014 use /api/history_v2 instead"
     post:
       operationId: manageHistory
       tags: [history]
@@ -409,6 +521,24 @@ paths:
         "200":
           description: History updated
 
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/history/{prompt_id}:
     get:
       operationId: getHistoryByPromptId
@@ -438,6 +568,8 @@ paths:
                 additionalProperties:
                   $ref: "#/components/schemas/HistoryEntry"
 
+        '404':
+          description: "Not Found \u2014 use /api/jobs/{prompt_id} instead"
   # ---------------------------------------------------------------------------
   # Upload
   # ---------------------------------------------------------------------------
@@ -481,6 +613,18 @@ paths:
         "400":
           description: No file provided or invalid request
 
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/upload/mask:
     post:
       operationId: uploadMask
@@ -539,6 +683,18 @@ paths:
         "400":
           description: No file provided or invalid request
 
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # View
   # ---------------------------------------------------------------------------
@@ -601,6 +757,33 @@ paths:
         "404":
           description: File not found
 
+        '302':
+          description: Redirect to GCS signed URL
+          headers:
+            Location:
+              description: Signed URL to access the file in GCS
+              schema:
+                type: string
+            Cache-Control:
+              description: Cache directive for the redirect response
+              schema:
+                type: string
+            Vary:
+              description: Headers that affect response caching
+              schema:
+                type: string
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/view_metadata/{folder_name}:
     get:
       operationId: viewMetadata
@@ -648,6 +831,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/SystemStatsResponse"
 
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/features:
     get:
       operationId: getFeatures
@@ -782,6 +971,8 @@ paths:
                 items:
                   type: string
 
+        '404':
+          description: "Not Found \u2014 use /api/experiment/models instead"
   /api/models/{folder}:
     get:
       operationId: getModelsByFolder
@@ -823,6 +1014,12 @@ paths:
                 items:
                   $ref: "#/components/schemas/ModelFolder"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/experiment/models/{folder}:
     get:
       operationId: getModelsInFolder
@@ -848,6 +1045,12 @@ paths:
         "404":
           description: Unknown folder type
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/experiment/models/preview/{folder}/{path_index}/{filename}:
     get:
       operationId: getModelPreview
@@ -884,6 +1087,12 @@ paths:
         "404":
           description: Preview not found
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Users
   # ---------------------------------------------------------------------------
@@ -917,6 +1126,12 @@ paths:
                     additionalProperties:
                       type: string
                     description: Map of user_id to directory name (multi-user)
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createUser
       tags: [user]
@@ -989,6 +1204,24 @@ paths:
         "404":
           description: Directory not found
 
+        '400':
+          description: Bad request (e.g., invalid filename).
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: General error
+          content:
+            text/plain:
+              schema:
+                type: string
   /api/v2/userdata:
     get:
       operationId: listUserdataV2
@@ -1025,6 +1258,8 @@ paths:
                       type: number
                       description: Unix timestamp
 
+        '404':
+          description: "Not Found \u2014 use /api/userdata instead"
   /api/userdata/{file}:
     get:
       operationId: getUserdataFile
@@ -1049,6 +1284,24 @@ paths:
                 format: binary
         "404":
           description: File not found
+        '400':
+          description: Bad request (e.g., invalid filename).
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: General error
+          content:
+            text/plain:
+              schema:
+                type: string
     post:
       operationId: postUserdataFile
       tags: [userdata]
@@ -1090,6 +1343,30 @@ paths:
                 $ref: "#/components/schemas/UserDataResponse"
         "409":
           description: File exists and overwrite not set
+        '400':
+          description: Missing or invalid 'file' parameter.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: The requested path is not allowed.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: General error
+          content:
+            text/plain:
+              schema:
+                type: string
     delete:
       operationId: deleteUserdataFile
       tags: [userdata]
@@ -1109,6 +1386,18 @@ paths:
         "404":
           description: File not found
 
+        '401':
+          description: Unauthorized.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: Internal server error.
+          content:
+            text/plain:
+              schema:
+                type: string
   /api/userdata/{file}/move/{dest}:
     post:
       operationId: moveUserdataFile
@@ -1151,6 +1440,24 @@ paths:
         "409":
           description: Destination exists and overwrite not set
 
+        '400':
+          description: Missing or invalid parameters.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '500':
+          description: General error
+          content:
+            text/plain:
+              schema:
+                type: string
   # ---------------------------------------------------------------------------
   # Settings
   # ---------------------------------------------------------------------------
@@ -1170,6 +1477,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: updateMultipleSettings
       tags: [settings]
@@ -1189,6 +1502,18 @@ paths:
         "200":
           description: Settings updated
 
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/settings/{id}:
     get:
       operationId: getSettingById
@@ -1211,6 +1536,18 @@ paths:
               schema:
                 nullable: true
                 description: The setting value (any JSON type), or null if not set
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Setting not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: updateSettingById
       tags: [settings]
@@ -1234,6 +1571,18 @@ paths:
         "200":
           description: Setting updated
 
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Extensions / Templates / i18n
   # ---------------------------------------------------------------------------
@@ -1308,6 +1657,12 @@ paths:
                 additionalProperties:
                   $ref: "#/components/schemas/GlobalSubgraphInfo"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/global_subgraphs/{id}:
     get:
       operationId: getGlobalSubgraph
@@ -1331,6 +1686,12 @@ paths:
         "404":
           description: Subgraph not found
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Node Replacements
   # ---------------------------------------------------------------------------
@@ -1351,6 +1712,12 @@ paths:
                 type: object
                 additionalProperties: true
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Internal (x-internal: true)
   # ---------------------------------------------------------------------------
@@ -1476,6 +1843,12 @@ paths:
                 items:
                   type: string
 
+        '400':
+          description: Invalid directory type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Assets (x-feature-gate: enable-assets)
   # ---------------------------------------------------------------------------
@@ -1499,6 +1872,24 @@ paths:
         "404":
           description: No asset with this hash
 
+        '400':
+          description: Invalid hash format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets:
     get:
       operationId: listAssets
@@ -1575,6 +1966,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListAssetsResponse"
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: uploadAsset
       tags: [assets]
@@ -1664,6 +2073,60 @@ paths:
               schema:
                 $ref: "#/components/schemas/AssetCreated"
 
+        '200':
+          description: Asset already exists (returned existing asset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetCreated'
+        '400':
+          description: Invalid request (bad file, invalid URL, invalid content type, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Source URL requires authentication or access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Source URL not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Unsupported media type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Download failed due to network error or timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/from-hash:
     post:
       operationId: createAssetFromHash
@@ -1707,6 +2170,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/AssetCreated"
 
+        '200':
+          description: Asset reference already exists (returned existing)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetCreated'
+        '400':
+          description: Invalid request (bad hash format, invalid tags, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Source asset with given hash not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/{id}:
     get:
       operationId: getAssetById
@@ -1731,6 +2224,18 @@ paths:
                 $ref: "#/components/schemas/Asset"
         "404":
           description: Asset not found
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: updateAsset
       tags: [assets]
@@ -1775,6 +2280,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AssetUpdated"
+        '400':
+          description: Invalid request (no fields provided)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Asset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteAsset
       tags: [assets]
@@ -1798,6 +2327,30 @@ paths:
         "204":
           description: Asset deleted
 
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Asset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Asset cannot be deleted because it is referenced by another resource (e.g., workflow version)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/{id}/content:
     get:
       operationId: getAssetContent
@@ -1859,6 +2412,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TagsModificationResponse"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Asset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error (e.g., reserved tag)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: removeAssetTags
       tags: [assets]
@@ -1894,6 +2477,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/TagsModificationResponse"
 
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Asset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error (e.g., reserved tag)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/tags:
     get:
       operationId: listTags
@@ -1923,6 +2536,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/ListTagsResponse"
 
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/tags/refine:
     get:
       operationId: getAssetTagHistogram
@@ -1986,6 +2617,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/AssetTagHistogramResponse"
 
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/seed:
     post:
       operationId: seedAssets
@@ -2117,6 +2766,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '400':
+          description: Bad Request - job_id is not a valid UUID (emitted by request validation before the handler runs)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BindingErrorResponse'
+        '500':
+          description: Internal server error - cancellation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/job/{job_id}/status:
     get:
       operationId: getJobStatus
@@ -2156,6 +2817,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '403':
+          description: Forbidden - job belongs to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/prompt/{prompt_id}:
     get:
       operationId: getCloudPrompt
@@ -2234,6 +2907,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/history_v2/{prompt_id}:
     get:
       operationId: getHistoryForPrompt
@@ -2273,6 +2952,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/logs:
     get:
       operationId: getLogs
@@ -2376,6 +3061,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '200':
+          description: File already exists in storage - asset created/returned immediately
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetCreated'
+        '422':
+          description: Validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/export:
     post:
       operationId: createAssetExport
@@ -2436,6 +3139,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/exports/{exportName}:
     get:
       operationId: getAssetExport
@@ -2471,6 +3180,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '400':
+          description: Invalid export name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/from-workflow:
     post:
       operationId: postAssetsFromWorkflow
@@ -2527,6 +3248,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/import:
     post:
       operationId: importPublishedAssets
@@ -2561,6 +3288,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/assets/remote-metadata:
     get:
       operationId: getRemoteAssetMetadata
@@ -2596,6 +3329,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '422':
+          description: Failed to retrieve metadata from source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Custom nodes / hub (cloud)
   # ---------------------------------------------------------------------------
@@ -2805,6 +3550,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/hub/labels:
     get:
       operationId: listHubLabels
@@ -2822,6 +3579,18 @@ paths:
                 items:
                   $ref: "#/components/schemas/HubLabel"
 
+        '400':
+          description: Bad request (e.g. invalid type parameter)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/hub/profiles:
     get:
       operationId: listHubProfiles
@@ -2905,6 +3674,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/hub/profiles/{username}:
     get:
       operationId: getHubProfile
@@ -2933,6 +3708,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/hub/profiles/check:
     get:
       operationId: checkHubUsername
@@ -2960,6 +3741,24 @@ paths:
                   username:
                     type: string
 
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/hub/profiles/me:
     get:
       operationId: getMyHubProfile
@@ -2980,6 +3779,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '404':
+          description: No hub profile exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: updateMyHubProfile
       tags: [hub]
@@ -3079,6 +3890,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HubWorkflowList"
+        '400':
+          description: Bad request (e.g. malformed pagination cursor)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Profile not found (when filtering by username)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: publishHubWorkflow
       tags: [hub]
@@ -3117,6 +3946,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/hub/workflows/{share_id}:
     get:
       operationId: getHubWorkflow
@@ -3144,6 +3979,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '413':
+          description: Workflow JSON too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteHubWorkflow
       tags: [hub]
@@ -3173,6 +4020,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/hub/workflows/index:
     get:
       operationId: listHubWorkflowIndex
@@ -3190,6 +4043,12 @@ paths:
                 items:
                   $ref: "#/components/schemas/HubWorkflowIndexEntry"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Workflows (cloud)
   # ---------------------------------------------------------------------------
@@ -3240,6 +4099,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createWorkflow
       tags: [workflows]
@@ -3285,6 +4150,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workflows/{workflow_id}:
     get:
       operationId: getWorkflow
@@ -3319,6 +4196,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: updateWorkflow
       tags: [workflows]
@@ -3369,6 +4258,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteWorkflow
       tags: [workflows]
@@ -3399,6 +4300,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workflows/{workflow_id}/content:
     get:
       operationId: getWorkflowContent
@@ -3440,6 +4347,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     put:
       operationId: updateCloudWorkflowContent
       tags: [workflows]
@@ -3533,6 +4452,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workflows/{workflow_id}/versions:
     get:
       operationId: listCloudWorkflowVersions
@@ -3638,6 +4575,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workflows/published/{share_id}:
     get:
       operationId: getPublishedWorkflow
@@ -3666,6 +4615,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Workflow JSON too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Auth / session (cloud)
   # ---------------------------------------------------------------------------
@@ -3714,6 +4681,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteSession
       tags: [auth]
@@ -3728,6 +4701,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/DeleteSessionResponse"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/auth/token:
     post:
       operationId: exchangeToken
@@ -3778,6 +4757,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '404':
+          description: Workspace not found or user not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /.well-known/jwks.json:
     get:
       operationId: getJwks
@@ -4106,6 +5097,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/events:
     get:
       operationId: getBillingEvents
@@ -4143,6 +5140,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/ops/{id}:
     get:
       operationId: getBillingOpStatus
@@ -4177,6 +5180,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/payment-portal:
     post:
       operationId: getPaymentPortal
@@ -4203,6 +5212,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '400':
+          description: Bad request (e.g., missing return_url)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/plans:
     get:
       operationId: getBillingPlans
@@ -4220,6 +5241,18 @@ paths:
                 items:
                   $ref: "#/components/schemas/BillingPlan"
 
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/preview-subscribe:
     post:
       operationId: previewSubscribe
@@ -4259,6 +5292,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/status:
     get:
       operationId: getBillingStatus
@@ -4280,6 +5319,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/subscribe:
     post:
       operationId: subscribe
@@ -4322,6 +5373,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/subscription/cancel:
     post:
       operationId: cancelSubscription
@@ -4343,6 +5400,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '400':
+          description: Invalid request (e.g., no active subscription)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/subscription/resubscribe:
     post:
       operationId: resubscribe
@@ -4364,6 +5433,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '400':
+          description: Invalid request (e.g., no active subscription, not in cancellation grace period)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/billing/topup:
     post:
       operationId: createTopup
@@ -4403,6 +5484,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # Workspace (cloud)
   # ---------------------------------------------------------------------------
@@ -4434,6 +5521,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createWorkspaceAPIKey
       tags: [workspace]
@@ -4482,6 +5575,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Key limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspace/api-keys/{id}:
     delete:
       operationId: revokeWorkspaceAPIKey
@@ -4518,6 +5635,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspace/invites:
     get:
       operationId: listWorkspaceInvites
@@ -4546,6 +5669,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createWorkspaceInvite
       tags: [workspace]
@@ -4601,6 +5730,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspace/invites/{inviteId}:
     delete:
       operationId: revokeWorkspaceInvite
@@ -4637,6 +5784,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspace/leave:
     post:
       operationId: leaveWorkspace
@@ -4660,6 +5813,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '404':
+          description: Workspace not found or not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspace/members:
     get:
       operationId: listWorkspaceMembers
@@ -4689,6 +5854,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspace/members/{user_id}/api-keys:
     get:
       operationId: listMemberApiKeys
@@ -4764,6 +5947,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '422':
+          description: Validation error (e.g. empty user_id)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspace/members/{userId}:
     patch:
       operationId: updateWorkspaceMember
@@ -4857,6 +6052,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspaces:
     get:
       operationId: listWorkspaces
@@ -4879,6 +6080,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '404':
+          description: Feature not enabled for user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createWorkspace
       tags: [workspace]
@@ -4917,6 +6130,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '404':
+          description: Feature not enabled for user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/workspaces/{id}:
     get:
       operationId: getWorkspace
@@ -4956,6 +6187,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: updateWorkspace
       tags: [workspace]
@@ -5010,6 +6247,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteWorkspace
       tags: [workspace]
@@ -5045,6 +6294,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   # ---------------------------------------------------------------------------
   # User / settings / misc (cloud)
   # ---------------------------------------------------------------------------
@@ -5101,6 +6356,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/files/mask-layers:
     get:
       operationId: getMaskLayers
@@ -5199,6 +6460,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/invites/{token}/accept:
     post:
       operationId: acceptWorkspaceInvite
@@ -5239,6 +6506,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '403':
+          description: Email does not match invite
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Already a member of this workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/secrets:
     get:
       operationId: listSecrets
@@ -5261,6 +6546,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable - feature is disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: createSecret
       tags: [settings]
@@ -5303,6 +6600,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '409':
+          description: Conflict - secret with this name or provider already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable - secrets feature disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/secrets/{id}:
     get:
       operationId: getSecret
@@ -5337,6 +6658,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '403':
+          description: Forbidden - user does not own this secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable - secrets feature disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       operationId: updateSecret
       tags: [settings]
@@ -5388,6 +6727,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '403':
+          description: Forbidden - user does not own this secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable - secrets feature disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     delete:
       operationId: deleteSecret
       tags: [settings]
@@ -5417,6 +6774,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '403':
+          description: Forbidden - user does not own this secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable - secrets feature disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/user:
     get:
       operationId: getUser
@@ -5508,6 +6883,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudError"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: postUserdataFilePublish
       tags: [userdata]
@@ -5546,6 +6927,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/vhs/queryvideo:
     get:
       operationId: getVhsQueryVideo
@@ -5592,6 +6985,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '400':
+          description: 'Missing required query parameter. Produced by the oapi-codegen
+            wrapper via echo.NewHTTPError, so the body shape matches Echo''s
+            default HTTPError serialization rather than ErrorResponse.
+            '
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BindingErrorResponse'
   /api/vhs/viewaudio:
     get:
       operationId: viewVhsAudio
@@ -5812,6 +7214,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/tasks/{task_id}:
     get:
       operationId: getTask
@@ -5847,6 +7255,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CloudError"
 
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   parameters:
     ComfyUserHeader:
@@ -9950,3 +11364,18 @@ components:
       properties:
         message:
           type: string
+
+    ErrorResponse:
+      type: object
+      x-runtime: [cloud]
+      description: '[cloud-only] Standard error response from cloud endpoints with a machine-readable code and human-readable message.'
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Human-readable error message
