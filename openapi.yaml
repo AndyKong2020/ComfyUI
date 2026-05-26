@@ -7565,6 +7565,16 @@ components:
         outputs_count:
           type: integer
           description: Total number of output files
+        workflow_id:
+          type: string
+          nullable: true
+          x-runtime: [cloud]
+          description: "[cloud-only] UUID of the Cloud workflow entity this job is associated with. Local ComfyUI returns null."
+        execution_error:
+          x-runtime: [cloud]
+          description: "[cloud-only] Detailed execution error from ComfyUI for failed jobs. Absent on local ComfyUI."
+          allOf:
+            - $ref: "#/components/schemas/ExecutionError"
 
     JobDetailResponse:
       type: object
