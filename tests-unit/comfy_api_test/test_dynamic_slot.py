@@ -147,6 +147,30 @@ def test_input_rejects_non_option_entry():
         io.DynamicSlot.Input("x", options=[_opt(io.Image, ["a"]), "not an option"])
 
 
+def test_input_defaults_to_optional_and_always_force_input():
+    """The slot is always rendered as a connector, never as a widget, even
+    when slotType includes widget-capable types like INT/STRING."""
+    inp = io.DynamicSlot.Input("x", options=[_opt(io.Int, ["n"])])
+    d = inp.as_dict()
+    assert d["forceInput"] is True
+    # default optional=True → slot lives in optional bucket via DynamicInput
+    assert inp.optional is True
+
+
+def test_input_required_slot_allowed_without_when_none():
+    inp = io.DynamicSlot.Input("x", optional=False, options=[_opt(io.Image, ["a"])])
+    assert inp.optional is False
+
+
+def test_input_required_slot_rejects_when_none_option():
+    with pytest.raises(ValueError, match="optional=False forbids when=None"):
+        io.DynamicSlot.Input(
+            "x",
+            optional=False,
+            options=[_opt(io.Image, ["a"]), _opt(None, ["b"])],
+        )
+
+
 def test_input_get_all_prepends_self_and_dedups_children():
     inp = io.DynamicSlot.Input("x", options=[
         _opt(io.Image, ["shared", "image_only"]),

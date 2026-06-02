@@ -1279,7 +1279,7 @@ class DynamicSlot(ComfyTypeI):
 
     class Input(DynamicInput):
         def __init__(self, id: str, options: list[DynamicSlot.Option],
-                    display_name: str=None, tooltip: str=None, lazy: bool=None, extra_dict=None):
+                    display_name: str=None, optional: bool=True, tooltip: str=None, lazy: bool=None, extra_dict=None):
             if not options:
                 raise ValueError("DynamicSlot.Input: at least one Option is required")
             for opt in options:
@@ -1287,7 +1287,7 @@ class DynamicSlot(ComfyTypeI):
                     raise ValueError(
                         f"DynamicSlot.Input: options must be DynamicSlot.Option instances, got {opt!r}"
                     )
-            super().__init__(id, display_name, True, tooltip, lazy, extra_dict)
+            super().__init__(id, display_name, optional, tooltip, lazy, extra_dict)
             self.options = options
             # Enforce uniqueness: each io_type (and the unconnected case) may
             # appear in at most one option's ``when``. Also derive the slot's
@@ -1315,6 +1315,12 @@ class DynamicSlot(ComfyTypeI):
                     "DynamicSlot.Input: at least one Option must have a non-None `when`; "
                     "a slot with only a `when=None` option can never be connected"
                 )
+            # A required slot demands a link, so the when=None branch is unreachable.
+            if not optional and seen_none:
+                raise ValueError(
+                    "DynamicSlot.Input: optional=False forbids when=None options; "
+                    "the unconnected branch is unreachable when a link is required"
+                )
             self._slot_io_type = ",".join(connected_types)
 
         # parse_class_inputs dispatches on the class io_type (COMFY_DYNAMICSLOT_V3),
@@ -1335,6 +1341,9 @@ class DynamicSlot(ComfyTypeI):
             return super().as_dict() | prune_dict({
                 "slotType": self._slot_io_type,
                 "options": [o.as_dict() for o in self.options],
+                # Always render as a connector — slotType may include widget-capable
+                # types (INT/STRING/etc.) but a DynamicSlot is a connection point.
+                "forceInput": True,
             })
 
         def validate(self):
