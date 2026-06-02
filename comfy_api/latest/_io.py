@@ -2057,11 +2057,22 @@ class Schema:
                 nested_inputs.extend(input.get_all())
         input_ids = [i.id for i in nested_inputs]
         input_set = set(input_ids)
-        combo_inputs = {i.id: i for i in self.inputs if isinstance(i, DynamicCombo.Input)}
-        slot_inputs = {i.id: i for i in self.inputs if isinstance(i, DynamicSlot.Input)}
-        # selector lookup covers both static (nested) inputs and DynamicCombo/Slot
-        # top-level inputs, since DynamicInput instances aren't included in nested_inputs.
-        all_selectable_ids = input_set | set(combo_inputs) | set(slot_inputs)
+        # Walk DynamicCombo / DynamicSlot options so a DynamicOutputs selector can
+        # target a nested dynamic input by dotted path (e.g. "outer.inner_slot").
+        # Other DynamicInput kinds (e.g. Autogrow) are skipped — their nested ids
+        # only exist at prompt time and aren't statically addressable.
+        selector_targets: dict[str, Input] = {}
+        def _walk(inputs: list[Input], prefix: str | None) -> None:
+            for inp in inputs:
+                dotted = inp.id if prefix is None else f"{prefix}.{inp.id}"
+                selector_targets[dotted] = inp
+                if isinstance(inp, (DynamicCombo.Input, DynamicSlot.Input)):
+                    for opt in inp.options:
+                        _walk(opt.inputs, dotted)
+        _walk(self.inputs, None)
+        combo_inputs = {sid: inp for sid, inp in selector_targets.items() if isinstance(inp, DynamicCombo.Input)}
+        slot_inputs = {sid: inp for sid, inp in selector_targets.items() if isinstance(inp, DynamicSlot.Input)}
+        all_selectable_ids = input_set | set(selector_targets)
 
         # ``output_ids`` covers every id that may ever appear in a finalized
         # output list — static outputs + every option's outputs across every

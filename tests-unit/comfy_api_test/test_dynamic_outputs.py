@@ -440,3 +440,98 @@ def test_v1_info_emits_byslot_entry():
     assert entry["selector"] == "slot"
     whens = [opt["when"] for opt in entry["options"]]
     assert whens == [["IMAGE"], ["LATENT"], None]
+
+
+# ---------------------------------------------------------------------------
+# Nested dynamic selectors (selector reaches into a DynamicCombo / DynamicSlot
+# option's nested inputs via a dotted path).
+# ---------------------------------------------------------------------------
+
+def test_schema_accepts_byslot_selector_into_nested_dynamic_slot():
+    """A BySlot selector may target a DynamicSlot nested inside a DynamicCombo option."""
+    class Nested(io.ComfyNode):
+        @classmethod
+        def define_schema(cls):
+            return io.Schema(
+                node_id="NestedBySlot",
+                inputs=[
+                    io.DynamicCombo.Input("outer", options=[
+                        io.DynamicCombo.Option(key="a", inputs=[
+                            io.DynamicSlot.Input("inner_slot", options=[
+                                io.DynamicSlot.Option(when=io.Image),
+                                io.DynamicSlot.Option(when=None),
+                            ]),
+                        ]),
+                    ]),
+                ],
+                outputs=[io.DynamicOutputs.BySlot(id="r", selector="outer.inner_slot", options=[
+                    io.DynamicOutputs.SlotOption(when=io.Image, outputs=[io.Image.Output("img")]),
+                    io.DynamicOutputs.SlotOption(when=None, outputs=[]),
+                ])],
+            )
+
+        @classmethod
+        def execute(cls, **kwargs):
+            return io.NodeOutput.from_named({})
+
+    # Must not raise — selector resolves to the nested DynamicSlot via dotted path.
+    Nested.GET_SCHEMA()
+
+
+def test_schema_accepts_bykey_selector_into_nested_dynamic_combo():
+    """A ByKey selector may target a DynamicCombo nested inside another DynamicCombo option."""
+    class Nested(io.ComfyNode):
+        @classmethod
+        def define_schema(cls):
+            return io.Schema(
+                node_id="NestedByKey",
+                inputs=[
+                    io.DynamicCombo.Input("outer", options=[
+                        io.DynamicCombo.Option(key="branch", inputs=[
+                            io.DynamicCombo.Input("inner", options=[
+                                io.DynamicCombo.Option(key="x", inputs=[]),
+                                io.DynamicCombo.Option(key="y", inputs=[]),
+                            ]),
+                        ]),
+                    ]),
+                ],
+                outputs=[io.DynamicOutputs.ByKey(id="r", selector="outer.inner", options=[
+                    io.DynamicOutputs.Option(key="x", outputs=[io.Int.Output("ix")]),
+                    io.DynamicOutputs.Option(key="y", outputs=[io.String.Output("iy")]),
+                ])],
+            )
+
+        @classmethod
+        def execute(cls, **kwargs):
+            return io.NodeOutput.from_named({})
+
+    Nested.GET_SCHEMA()
+
+
+def test_schema_rejects_byslot_nested_when_type_not_on_target_slot():
+    """The when-type alignment check follows the dotted selector into the nested slot."""
+    class BadNested(io.ComfyNode):
+        @classmethod
+        def define_schema(cls):
+            return io.Schema(
+                node_id="BadNested",
+                inputs=[
+                    io.DynamicCombo.Input("outer", options=[
+                        io.DynamicCombo.Option(key="a", inputs=[
+                            io.DynamicSlot.Input("inner_slot", options=[
+                                io.DynamicSlot.Option(when=io.Image),
+                            ]),
+                        ]),
+                    ]),
+                ],
+                outputs=[io.DynamicOutputs.BySlot(id="r", selector="outer.inner_slot", options=[
+                    io.DynamicOutputs.SlotOption(when=io.Audio, outputs=[io.Audio.Output("x")]),
+                ])],
+            )
+
+        @classmethod
+        def execute(cls, **kwargs):
+            return io.NodeOutput.from_named({})
+
+    with pytest.raises(ValueError, match=r"type\(s\) \['AUDIO'\] are not accepted"):
+        BadNested.GET_SCHEMA()
