@@ -921,7 +921,6 @@ async def validate_inputs(prompt_id, prompt, item, validated, visiting=None, typ
                 continue
 
             o_id = val[0]
-            o_class_type = prompt[o_id]['class_type']
             # Walks MatchType/template chains so API workflows without
             # frontend-injected type metadata get the same answer as the UI.
             received_type = type_resolver.resolve_output_type(o_id, val[1])
