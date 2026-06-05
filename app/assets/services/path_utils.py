@@ -6,15 +6,21 @@ import folder_paths
 from app.assets.helpers import normalize_tags
 
 
-_NON_MODEL_FOLDER_NAMES = frozenset({"custom_nodes"})
+# These names are bootstrapped into folder_names_and_paths by core but are not
+# model folders (matching /api/experiment/models' exclusion). Intentionally
+# duplicated here so the assets layer stays decoupled from the legacy
+# model-manager code it will eventually replace.
+_NON_MODEL_FOLDER_NAMES = frozenset({"configs", "custom_nodes"})
+
+AssetRoot = Literal["input", "output", "temp", "models"]
 
 
 def get_comfy_models_folders() -> list[tuple[str, list[str]]]:
     """Build list of (folder_name, base_paths[]) for all model locations.
 
-    Includes every category registered in folder_names_and_paths,
+    Includes every folder name registered in folder_names_and_paths,
     regardless of whether its paths are under the main models_dir,
-    but excludes non-model entries like custom_nodes.
+    but excludes non-model entries like configs and custom_nodes.
     """
     targets: list[tuple[str, list[str]]] = []
     for name, values in folder_paths.folder_names_and_paths.items():
@@ -26,6 +32,16 @@ def get_comfy_models_folders() -> list[tuple[str, list[str]]]:
     return targets
 
 
+def get_comfy_model_folder_names() -> set[str]:
+    """Return valid model folder names for public asset model paths."""
+    return {name for name, _paths in get_comfy_models_folders()}
+
+
+def is_comfy_model_folder_name(folder_name: str) -> bool:
+    """Return whether a folder name resolves to a public model folder name."""
+    return folder_paths.map_legacy(folder_name) in get_comfy_model_folder_names()
+
+
 def resolve_destination_from_tags(tags: list[str]) -> tuple[str, list[str]]:
     """Validates and maps tags -> (base_dir, subdirs_for_fs)"""
     if not tags:
@@ -34,8 +50,11 @@ def resolve_destination_from_tags(tags: list[str]) -> tuple[str, list[str]]:
     if root == "models":
         if len(tags) < 2:
             raise ValueError("at least two tags required for model asset")
+        folder_name = folder_paths.map_legacy(tags[1])
+        if not is_comfy_model_folder_name(tags[1]):
+            raise ValueError(f"unknown model category '{tags[1]}'")
         try:
-            bases = folder_paths.folder_names_and_paths[tags[1]][0]
+            bases = folder_paths.folder_names_and_paths[folder_name][0]
         except KeyError:
             raise ValueError(f"unknown model category '{tags[1]}'")
         if not bases:
@@ -65,35 +84,114 @@ def validate_path_within_base(candidate: str, base: str) -> None:
         raise ValueError("destination escapes base directory")
 
 
-def compute_relative_filename(file_path: str) -> str | None:
-    """
-    Return the model's path relative to the last well-known folder (the model category),
-    using forward slashes, eg:
-      /.../models/checkpoints/flux/123/flux.safetensors -> "flux/123/flux.safetensors"
-      /.../models/text_encoders/clip_g.safetensors -> "clip_g.safetensors"
+def compute_asset_response_paths(
+    file_path: str,
+) -> tuple[str, str | None] | None:
+    """Compute (file_path, display_name) for an Asset response.
 
-    For non-model paths, returns None.
+    `file_path` is a logical namespace key: `<root>/<rel>` for input/output/temp
+    assets and `models/<folder_name>/<rel>` for files under ComfyUI's registered
+    model-folder paths. `display_name` is the path below that root or registered
+    folder name, suitable for UI labels. Returns None when the absolute path is
+    not under a known asset root or registered model-folder path.
     """
     try:
-        root_category, rel_path = get_asset_category_and_relative_path(file_path)
+        root, folder_name, rel = get_asset_root_folder_name_and_filepath(file_path)
     except ValueError:
         return None
 
-    p = Path(rel_path)
-    parts = [seg for seg in p.parts if seg not in (".", "..", p.anchor)]
-    if not parts:
-        return None
+    display_name = rel or None
+    if folder_name is None:
+        response_file_path = f"{root}/{rel}" if rel else root
+    else:
+        response_file_path = f"{root}/{folder_name}/{rel}" if rel else f"{root}/{folder_name}"
+    return response_file_path, display_name
 
-    if root_category == "models":
-        # parts[0] is the category ("checkpoints", "vae", etc) – drop it
-        inside = parts[1:] if len(parts) > 1 else [parts[0]]
-        return "/".join(inside)
-    return "/".join(parts)  # input/output: keep all parts
+
+def compute_display_name(file_path: str) -> str | None:
+    """Return the asset's `display_name`, or None for unknown paths."""
+    result = compute_asset_response_paths(file_path)
+    return result[1] if result else None
+
+
+def compute_file_path(file_path: str) -> str | None:
+    """Return the asset's logical `file_path`, or None for unknown paths."""
+    result = compute_asset_response_paths(file_path)
+    return result[0] if result else None
+
+
+def compute_relative_filename(file_path: str) -> str | None:
+    """
+    Return the path relative to the asset root or model folder name, using forward slashes, eg:
+      /.../models/checkpoints/flux/123/flux.safetensors -> "flux/123/flux.safetensors"
+      /.../models/text_encoders/clip_g.safetensors -> "clip_g.safetensors"
+      /.../input/sub/image.png -> "sub/image.png"
+
+    For unknown paths, returns None.
+    """
+    return compute_display_name(file_path)
+
+
+def get_asset_root_folder_name_and_filepath(
+    file_path: str,
+) -> tuple[AssetRoot, str | None, str]:
+    """Decompose an absolute path into (root, registered folder name, path-under-root).
+
+    `folder_name` is set only when the path is under a ComfyUI registered
+    model-folder path from `folder_names_and_paths`. The returned relative path
+    always uses `/` separators and is empty when the path is exactly the matched
+    root.
+
+    Raises:
+        ValueError: path does not belong to any known root.
+    """
+    fp_abs = os.path.abspath(file_path)
+
+    def _check_is_within(child: str, parent: str) -> bool:
+        return Path(child).is_relative_to(parent)
+
+    def _compute_relative(child: str, parent: str) -> str:
+        # Normalize relative path, stripping any leading ".." components
+        # by anchoring to root (os.sep) then computing relpath back from it.
+        rel = os.path.relpath(
+            os.path.join(os.sep, os.path.relpath(child, parent)), os.sep
+        )
+        return "" if rel == "." else rel.replace(os.sep, "/")
+
+    # Registered model folders define ComfyUI's model namespace. Check these
+    # first so output-backed or external model paths become
+    # models/<folder_name>/<relative-path> rather than physical output/... paths.
+    best_model: tuple[int, str, str] | None = None
+    for folder_name, bases in get_comfy_models_folders():
+        for b in bases:
+            base_abs = os.path.abspath(b)
+            if not _check_is_within(fp_abs, base_abs):
+                continue
+            cand = (len(base_abs), folder_name, _compute_relative(fp_abs, base_abs))
+            if best_model is None or cand[0] > best_model[0]:
+                best_model = cand
+
+    if best_model is not None:
+        _, folder_name, rel_inside = best_model
+        return "models", folder_name, rel_inside
+
+    for root_tag, getter in (
+        ("input", folder_paths.get_input_directory),
+        ("output", folder_paths.get_output_directory),
+        ("temp", folder_paths.get_temp_directory),
+    ):
+        base = os.path.abspath(getter())
+        if _check_is_within(fp_abs, base):
+            return root_tag, None, _compute_relative(fp_abs, base)
+
+    raise ValueError(
+        f"Path is not within input, output, temp, or configured model bases: {file_path}"
+    )
 
 
 def get_asset_category_and_relative_path(
     file_path: str,
-) -> tuple[Literal["input", "output", "temp", "models"], str]:
+) -> tuple[AssetRoot, str]:
     """Determine which root category a file path belongs to.
 
     Categories:
@@ -108,52 +206,12 @@ def get_asset_category_and_relative_path(
     Raises:
         ValueError: path does not belong to any known root.
     """
-    fp_abs = os.path.abspath(file_path)
+    root, folder_name, rel = get_asset_root_folder_name_and_filepath(file_path)
+    if folder_name is None:
+        return root, rel
 
-    def _check_is_within(child: str, parent: str) -> bool:
-        return Path(child).is_relative_to(parent)
-
-    def _compute_relative(child: str, parent: str) -> str:
-        # Normalize relative path, stripping any leading ".." components
-        # by anchoring to root (os.sep) then computing relpath back from it.
-        return os.path.relpath(
-            os.path.join(os.sep, os.path.relpath(child, parent)), os.sep
-        )
-
-    # 1) input
-    input_base = os.path.abspath(folder_paths.get_input_directory())
-    if _check_is_within(fp_abs, input_base):
-        return "input", _compute_relative(fp_abs, input_base)
-
-    # 2) output
-    output_base = os.path.abspath(folder_paths.get_output_directory())
-    if _check_is_within(fp_abs, output_base):
-        return "output", _compute_relative(fp_abs, output_base)
-
-    # 3) temp
-    temp_base = os.path.abspath(folder_paths.get_temp_directory())
-    if _check_is_within(fp_abs, temp_base):
-        return "temp", _compute_relative(fp_abs, temp_base)
-
-    # 4) models (check deepest matching base to avoid ambiguity)
-    best: tuple[int, str, str] | None = None  # (base_len, bucket, rel_inside_bucket)
-    for bucket, bases in get_comfy_models_folders():
-        for b in bases:
-            base_abs = os.path.abspath(b)
-            if not _check_is_within(fp_abs, base_abs):
-                continue
-            cand = (len(base_abs), bucket, _compute_relative(fp_abs, base_abs))
-            if best is None or cand[0] > best[0]:
-                best = cand
-
-    if best is not None:
-        _, bucket, rel_inside = best
-        combined = os.path.join(bucket, rel_inside)
-        return "models", os.path.relpath(os.path.join(os.sep, combined), os.sep)
-
-    raise ValueError(
-        f"Path is not within input, output, temp, or configured model bases: {file_path}"
-    )
+    combined = os.path.join(folder_name, rel)
+    return root, os.path.relpath(os.path.join(os.sep, combined), os.sep)
 
 
 def get_name_and_tags_from_asset_path(file_path: str) -> tuple[str, list[str]]:

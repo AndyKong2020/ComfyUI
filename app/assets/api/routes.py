@@ -10,7 +10,6 @@ from typing import Any
 from aiohttp import web
 from pydantic import ValidationError
 
-import folder_paths
 from app import user_manager
 from app.assets.api import schemas_in, schemas_out
 from app.assets.services import schemas
@@ -38,6 +37,10 @@ from app.assets.services import (
     resolve_asset_for_download,
     update_asset_metadata,
     upload_from_temp_path,
+)
+from app.assets.services.path_utils import (
+    compute_asset_response_paths,
+    is_comfy_model_folder_name,
 )
 from app.assets.services.tagging import list_tag_histogram
 
@@ -160,9 +163,16 @@ def _build_asset_response(result: schemas.AssetDetailResult | schemas.UploadResu
             preview_url = None
     else:
         preview_url = _build_preview_url_from_view(result.tags, result.ref.user_metadata)
+    if result.ref.file_path:
+        paths = compute_asset_response_paths(result.ref.file_path)
+        file_path, display_name = paths if paths else (None, None)
+    else:
+        file_path, display_name = None, None
     return schemas_out.Asset(
         id=result.ref.id,
         name=result.ref.name,
+        file_path=file_path,
+        display_name=display_name,
         asset_hash=result.asset.hash if result.asset else None,
         size=int(result.asset.size_bytes) if result.asset else None,
         mime_type=result.asset.mime_type if result.asset else None,
@@ -401,10 +411,7 @@ async def upload_asset(request: web.Request) -> web.Response:
         )
 
     if spec.tags and spec.tags[0] == "models":
-        if (
-            len(spec.tags) < 2
-            or spec.tags[1] not in folder_paths.folder_names_and_paths
-        ):
+        if len(spec.tags) < 2 or not is_comfy_model_folder_name(spec.tags[1]):
             delete_temp_file_if_exists(parsed.tmp_path)
             category = spec.tags[1] if len(spec.tags) >= 2 else ""
             return _build_error_response(

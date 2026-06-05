@@ -1667,8 +1667,9 @@ paths:
     post:
       operationId: createAssetFromHash
       tags: [assets]
+      deprecated: true
       summary: Create an asset reference from an existing hash
-      description: Registers a new asset that references existing content by hash, without re-uploading the bytes.
+      description: Deprecated. Registers a new asset that references existing content by hash, without re-uploading the bytes.
       x-feature-gate: enable-assets
       requestBody:
         required: true
@@ -6328,7 +6329,16 @@ components:
           description: Unique identifier for the asset
         name:
           type: string
-          description: Name of the asset file
+          deprecated: true
+          description: "Deprecated: use `file_path` or `display_name`. Free user-chosen label with no path semantics."
+        file_path:
+          type: string
+          nullable: true
+          description: "Logical namespace key for the asset. Relative path only: no './' or '../' segments, no leading or trailing '/', and SHOULD include a file extension. For files under ComfyUI registered model-folder paths, uses `models/<folder_name>/<filename>`. It is not a physical path, not stable across model folder configuration changes, and not a unique reference key; duplicate model names may resolve to a different physical file according to ComfyUI's model-folder search order. Use `id` for exact asset identity."
+        display_name:
+          type: string
+          nullable: true
+          description: "Human-facing display label for the asset, usually the filename relative to its root or registered model-folder name. Not a unique reference key; use `id` for identity."
         hash:
           type: string
           nullable: true

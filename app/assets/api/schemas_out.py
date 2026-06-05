@@ -9,7 +9,19 @@ class Asset(BaseModel):
     ``id`` here is the AssetReference id, not the content-addressed Asset id."""
 
     id: str
-    name: str
+    name: str = Field(
+        ...,
+        deprecated=True,
+        description="Deprecated: use `file_path` or `display_name`. Free user-chosen label with no path semantics.",
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="Logical namespace key for the asset. For files under ComfyUI registered model-folder paths, uses `models/<folder_name>/<filename>`; not a physical path or unique identity.",
+    )
+    display_name: str | None = Field(
+        default=None,
+        description="Human-facing display label for the asset, usually the filename relative to its root or registered model-folder name.",
+    )
     asset_hash: str | None = None
     size: int | None = None
     mime_type: str | None = None
