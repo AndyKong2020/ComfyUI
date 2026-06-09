@@ -211,7 +211,10 @@ def get_asset_category_and_relative_path(
         return root, rel
 
     combined = os.path.join(folder_name, rel)
-    return root, os.path.relpath(os.path.join(os.sep, combined), os.sep)
+    normalized = os.path.relpath(os.path.join(os.sep, combined), os.sep)
+    # Normalize to forward slashes so the logical path is identical across
+    # platforms (os.path.relpath emits backslashes on Windows).
+    return root, normalized.replace(os.sep, "/")
 
 
 def get_name_and_tags_from_asset_path(file_path: str) -> tuple[str, list[str]]:
