@@ -258,6 +258,10 @@ if args.disable_auto_launch:
 if args.force_fp16:
     args.fp16_unet = True
 
+# '--enable-manager-legacy-ui' is meaningless unless the manager is enabled, so imply '--enable-manager'.
+if args.enable_manager_legacy_ui:
+    args.enable_manager = True
+
 
 # '--fast' is not provided, use an empty set
 if args.fast is None:
