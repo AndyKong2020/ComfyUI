@@ -1572,6 +1572,8 @@ class Cube3D(supported_models_base.BASE):
         return model_base.Cube3D(self, device=device)
 
     def clip_target(self, state_dict={}):
+        # No bundled text encoder: the cube checkpoint is GPT-only. The graph wires a
+        # standard CLIPLoader(clip-l)/CLIPTextEncode, so there is no clip_target to build.
         return None
 
 class TripoSplat(supported_models_base.BASE):

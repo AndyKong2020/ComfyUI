@@ -668,7 +668,7 @@ def detect_unet_config(state_dict, key_prefix, metadata=None):
         dit_config["text_model_embed_dim"] = state_dict['{}text_proj.weight'.format(key_prefix)].shape[1]
         dit_config["use_bbox"] = '{}bbox_proj.weight'.format(key_prefix) in state_dict_keys
         dit_config["bias"] = '{}text_proj.bias'.format(key_prefix) in state_dict_keys
-        dit_config["rope_theta"] = 10000
+        dit_config["rope_theta"] = 10000  # not stored in the state dict; upstream's fixed constant
         return dit_config
 
     if '{}latent_in.weight'.format(key_prefix) in state_dict_keys:  # Hunyuan 3D

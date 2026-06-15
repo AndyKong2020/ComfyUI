@@ -490,7 +490,6 @@ class VAE:
         self.disable_offload = False
         self.not_video = False
         self.size = None
-        self.cube3d = False
 
         self.downscale_index_formula = None
         self.upscale_index_formula = None
@@ -781,7 +780,6 @@ class VAE:
 
             # Roblox Cube3D shape tokenizer (OneDAutoEncoder, decode-only)
             elif "bottleneck.block.codebook.weight" in sd:
-                self.cube3d = True
                 self.latent_dim = 1
                 # The VQ bottleneck (get_codebook/lookup_codebook) reads raw parameters
                 # outside any hooked forward, so the streaming-offload cast hooks can't
@@ -809,6 +807,9 @@ class VAE:
                 self.process_input = lambda image: image
                 # shape is the token-ID latent (B, 1, num_tokens); size by num_tokens.
                 self.memory_used_decode = lambda shape, dtype: (1000 * shape[-1] * 768) * model_management.dtype_size(dtype)
+                # fp32-only (unlike most VAEs that allow fp16/bf16): the VQ codebook lookup
+                # and occupancy-grid query must run in fp32 to match upstream and keep the
+                # isosurface stable.
                 self.working_dtypes = [torch.float32]
 
             elif "vocoder.backbone.channel_layers.0.0.bias" in sd: #Ace Step Audio
